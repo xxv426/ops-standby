@@ -1,0 +1,69 @@
+web:
+  address: 0.0.0.0
+  port: 8080
+
+storage:
+  type: sqlite
+  path: /data/gatus.db
+
+alerting:
+  email:
+    from: "${ALERT_FROM}"
+    username: "${SMTP_USERNAME}"
+    password: "${SMTP_PASSWORD}"
+    host: "${SMTP_HOST}"
+    port: ${SMTP_PORT}
+    to: "${ALERT_TO}"
+
+endpoint-defaults: &defaults
+  interval: 5m
+  alerts:
+    - type: email
+      failure-threshold: 3
+      success-threshold: 2
+      send-on-resolved: true
+
+endpoints:
+  - <<: *defaults
+    name: xxvlab
+    group: main
+    url: "https://xxvlab.com/"
+    conditions:
+      - "[STATUS] == 200"
+      - "[RESPONSE_TIME] < 3000"
+      - "[CERTIFICATE_EXPIRATION] > 336h"
+
+  - <<: *defaults
+    name: umami
+    group: main
+    url: "https://stats.xxvlab.com/api/heartbeat"
+    conditions:
+      - "[STATUS] == 200"
+      - "[CERTIFICATE_EXPIRATION] > 336h"
+
+  - <<: *defaults
+    name: vaultwarden
+    group: main
+    url: "https://vault.xxvlab.com/alive"
+    conditions:
+      - "[STATUS] == 200"
+      - "[CERTIFICATE_EXPIRATION] > 336h"
+
+# Nightly backup heartbeats from the main server (HEARTBEAT_URL in its
+# /etc/ops/alert.env). Key: backup_<host>-<app>. No push for 26 hours alerts.
+heartbeat-defaults: &heartbeat
+  group: backup
+  token: "${HEARTBEAT_TOKEN}"
+  heartbeat:
+    interval: 26h
+  alerts:
+    - type: email
+      failure-threshold: 1
+      success-threshold: 1
+      send-on-resolved: true
+
+external-endpoints:
+  - <<: *heartbeat
+    name: main-xxvlab
+  - <<: *heartbeat
+    name: main-vaultwarden
